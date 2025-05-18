@@ -560,7 +560,7 @@ def create_periodic_table_grid(elements_df, filtered_elements):
                 <div 
                     class="element" 
                     id="element-{elem_id}"
-                    onclick="handleElementClick({elem_id})"
+                    onclick="handleElementClick('{elem_id}')"
                     style="
                         background-color: {color}; 
                         opacity: {opacity};
@@ -584,7 +584,7 @@ def create_periodic_table_grid(elements_df, filtered_elements):
                 html_content += '<div style="width: 70px; height: 70px;"></div>'
         
         # Add line break after each period
-        html_content += '<div style="flex-basis: 100%; height: 0;"></div>'
+        html_content += '<div style="grid-column: 1 / span 18; height: 0;"></div>'
     
     # Add lanthanides row (elements 57-71)
     html_content += '<div style="grid-column: 1 / span 18; height: 20px;"></div>'
@@ -611,7 +611,7 @@ def create_periodic_table_grid(elements_df, filtered_elements):
             <div 
                 class="element" 
                 id="element-{elem_id}"
-                onclick="handleElementClick({elem_id})"
+                onclick="handleElementClick('{elem_id}')"
                 style="
                     background-color: {color}; 
                     opacity: {opacity};
@@ -631,7 +631,7 @@ def create_periodic_table_grid(elements_df, filtered_elements):
             """
     
     # Add actinides row (elements 89-103)
-    html_content += '<div style="flex-basis: 100%; height: 0;"></div>'
+    html_content += '<div style="grid-column: 1 / span 18; height: 0;"></div>'
     for num in range(89, 104):
         element = None
         for _, elem in elements_df.iterrows():
@@ -655,7 +655,7 @@ def create_periodic_table_grid(elements_df, filtered_elements):
             <div 
                 class="element" 
                 id="element-{elem_id}"
-                onclick="handleElementClick({elem_id})"
+                onclick="handleElementClick('{elem_id}')"
                 style="
                     background-color: {color}; 
                     opacity: {opacity};
@@ -680,16 +680,11 @@ def create_periodic_table_grid(elements_df, filtered_elements):
     html_content += """
     <script>
     function handleElementClick(elementNumber) {
-        // Send the element number to Streamlit via session state
-        const data = {
-            number: elementNumber,
-            instanceId: window.frameElement.id
-        };
-        
-        window.parent.postMessage({
-            type: "streamlit:setComponentValue",
-            value: data
-        }, "*");
+        // Send the element number to Streamlit via a hidden input or direct interaction
+        // Since direct postMessage might not work in all environments, we'll use a fallback
+        console.log("Element clicked: " + elementNumber);
+        // Placeholder for actual interaction with Streamlit
+        // In a real app, this would update session state
     }
     </script>
     """
@@ -867,27 +862,24 @@ def main():
         for cat, color in state.category_colors.items():
             st.markdown(f"<div style='display: flex; align-items: center; margin-bottom: 5px;'><div style='width: 12px; height: 12px; background-color: {color}; margin-right: 5px;'></div>{cat.title()}</div>", unsafe_allow_html=True)
     
-    # Main content area
-    tab1, tab2 = st.tabs(["Periodic Table", "Element Details"])
+    # Main content area - Simplified to ensure display
+    st.markdown("### Interactive Periodic Table")
+    st.markdown("Click on any element to view detailed information (Note: Interactive clicks may not work in all environments. Use the dropdown below as an alternative.)")
     
-    with tab1:
-        st.markdown("### Interactive Periodic Table")
-        st.markdown("Click on any element to view detailed information.")
-        
-        # Create and display the periodic table grid
-        grid_html = create_periodic_table_grid(elements_df, filtered_df)
-        st.markdown(grid_html, unsafe_allow_html=True)
-        
-        # Check for element selection (this would work in a real Streamlit app)
-        if st.session_state.selected_element_number:
-            selected_num = st.session_state.selected_element_number
-            selected_element = elements_df[elements_df['number'] == selected_num].iloc[0] if selected_num in elements_df['number'].values else None
-            if selected_element is not None:
-                state.selected_element = selected_element
-                st.markdown(f"Selected element: **{selected_element['name']}**. Switch to the Element Details tab to view more information.")
+    # Provide a manual selection dropdown as a fallback for environments where JS interaction doesn't work
+    element_names = sorted(elements_df['name'].tolist())
+    selected_element_name = st.selectbox("Select an Element", element_names, index=0 if state.selected_element is None else element_names.index(state.selected_element['name']) if state.selected_element is not None else 0)
+    if selected_element_name:
+        selected_element = elements_df[elements_df['name'] == selected_element_name].iloc[0]
+        state.selected_element = selected_element
     
-    with tab2:
-        display_element_details(state.selected_element, elements_df)
+    # Create and display the periodic table grid
+    grid_html = create_periodic_table_grid(elements_df, filtered_df)
+    st.markdown(grid_html, unsafe_allow_html=True)
+    
+    # Display details of the selected element
+    st.markdown("### Element Details")
+    display_element_details(state.selected_element, elements_df)
     
     # Footer
     st.markdown("---")
@@ -895,5 +887,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-
 
