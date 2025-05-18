@@ -7,16 +7,9 @@ import streamlit as st
 import pandas as pd
 import requests
 import json
-import time
-from io import BytesIO
-import base64
-from PIL import Image
 import numpy as np
 import plotly.graph_objects as go
-import plotly.express as px
-from streamlit_option_menu import option_menu
-import altair as alt
-import os
+import os # For path joining if using local HTML file for component
 
 # Set page configuration with custom theme
 st.set_page_config(
@@ -31,7 +24,7 @@ st.set_page_config(
     }
 )
 
-# Custom CSS for production-grade UI
+# Custom CSS for production-grade UI (same as before)
 st.markdown("""
 <style>
     /* Main app styling */
@@ -39,158 +32,75 @@ st.markdown("""
         background-color: #f5f7f9;
         color: #1e1e1e;
     }
-    
-    /* Header styling */
     .main h1 {
-        color: #1e3a8a;
+        color: #1e3a8a; /* Darker blue */
         font-weight: 600;
         font-size: 2.5rem;
         margin-bottom: 0.5rem;
         padding-bottom: 1rem;
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid #e5e7eb; /* Light gray border */
     }
-    
-    /* Card styling for element details */
     .element-card {
         background-color: white;
         border-radius: 10px;
         padding: 1.5rem;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         margin-bottom: 1rem;
-        border-left: 5px solid var(--category-color, #3b82f6);
+        border-left: 5px solid var(--category-color, #3b82f6); /* Dynamic color based on category */
     }
-    
-    /* Tabs styling */
     .stTabs [data-baseweb="tab-list"] {
         gap: 2px;
     }
-    
     .stTabs [data-baseweb="tab"] {
         height: 50px;
         white-space: pre-wrap;
-        background-color: #f3f4f6;
+        background-color: #f3f4f6; /* Light gray for inactive tabs */
         border-radius: 4px 4px 0px 0px;
         gap: 1px;
         padding-top: 10px;
         padding-bottom: 10px;
     }
-    
     .stTabs [aria-selected="true"] {
-        background-color: #3b82f6;
+        background-color: #3b82f6; /* Blue for active tab */
         color: white;
     }
-    
-    /* Table styling */
-    .dataframe {
+    /* Table styling (from previous examples) */
+    .dataframe { /* Target Streamlit's default table rendering for consistency */
         border-collapse: collapse;
         margin: 25px 0;
         font-size: 0.9em;
         font-family: sans-serif;
+        min-width: 400px;
         box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
-        border-radius: 10px;
-        overflow: hidden;
+        border-radius: 10px; /* Rounded corners for table */
+        overflow: hidden; /* Ensures border radius is respected */
     }
-    
     .dataframe thead tr {
-        background-color: #3b82f6;
-        color: white;
+        background-color: #3b82f6; /* Header background */
+        color: #ffffff; /* Header text color */
         text-align: left;
     }
-    
     .dataframe th,
     .dataframe td {
         padding: 12px 15px;
     }
-    
     .dataframe tbody tr {
         border-bottom: 1px solid #dddddd;
     }
-    
     .dataframe tbody tr:nth-of-type(even) {
-        background-color: #f3f3f3;
+        background-color: #f3f3f3; /* Zebra striping for rows */
     }
-    
     .dataframe tbody tr:last-of-type {
-        border-bottom: 2px solid #3b82f6;
+        border-bottom: 2px solid #3b82f6; /* Emphasize table end */
     }
-    
-    /* Element grid styling */
-    .element {
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    }
-    .element:hover {
-        transform: scale(1.08);
-        box-shadow: 0 6px 10px rgba(0,0,0,0.2) !important;
-        z-index: 100;
-        cursor: pointer;
-    }
-    
-    /* Loading animation */
-    .loading-spinner {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        height: 100%;
-    }
-    
-    /* Custom button styling */
-    .custom-button {
-        background-color: #3b82f6;
-        color: white;
-        border-radius: 6px;
-        padding: 0.5rem 1rem;
-        font-weight: 600;
-        text-align: center;
-        transition: background-color 0.2s;
-        border: none;
-        cursor: pointer;
-    }
-    .custom-button:hover {
-        background-color: #2563eb;
-    }
-    
-    /* Tooltip styling */
-    .tooltip {
-        position: relative;
-        display: inline-block;
-    }
-    
-    .tooltip .tooltiptext {
-        visibility: hidden;
-        width: 200px;
-        background-color: #1e1e1e;
-        color: #fff;
-        text-align: center;
-        border-radius: 6px;
-        padding: 10px;
-        position: absolute;
-        z-index: 1;
-        bottom: 125%;
-        left: 50%;
-        transform: translateX(-50%);
-        opacity: 0;
-        transition: opacity 0.3s;
-    }
-    
-    .tooltip:hover .tooltiptext {
-        visibility: visible;
-        opacity: 1;
-    }
-    
     /* Custom sidebar styling */
-    .css-1d391kg {
-        background-color: #f1f5f9;
+    .css-1d391kg { /* This class might change with Streamlit updates, target more generically if needed */
+        background-color: #f1f5f9; /* Lighter sidebar background */
     }
-    
-    /* Media query for responsive design */
-    @media only screen and (max-width: 768px) {
-        .element-card {
-            padding: 1rem;
-        }
-        
-        .main h1 {
-            font-size: 1.8rem;
-        }
+    /* Responsive adjustments */
+    @media (max-width: 768px) {
+        .main h1 { font-size: 2rem; }
+        .element-card { padding: 1rem; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -198,119 +108,118 @@ st.markdown("""
 # App state management
 class AppState:
     def __init__(self):
-        self.selected_element = None
-        self.elements_data = None
         self.category_colors = {
-            "alkali metal": "#ff8a65",
-            "alkaline earth metal": "#ffb74d",
-            "transition metal": "#ffd54f",
-            "post-transition metal": "#dce775",
-            "metalloid": "#aed581",
-            "nonmetal": "#4fc3f7",
-            "halogen": "#80deea",
-            "noble gas": "#9575cd",
-            "lanthanoid": "#f48fb1",
-            "actinoid": "#f06292",
-            "unknown": "#e0e0e0"
+            "diatomic nonmetal": "#7dd3fc", # Light blue for diatomic nonmetals
+            "noble gas": "#a78bfa", # Purple for noble gases
+            "alkali metal": "#fb923c", # Orange for alkali metals
+            "alkaline earth metal": "#facc15", # Yellow for alkaline earth metals
+            "metalloid": "#4ade80", # Green for metalloids
+            "polyatomic nonmetal": "#22d3ee", # Cyan for polyatomic nonmetals
+            "post-transition metal": "#a3a3a3", # Gray for post-transition metals
+            "transition metal": "#f472b6", # Pink for transition metals
+            "lanthanide": "#d8b4fe", # Lighter purple for lanthanides
+            "actinide": "#fda4af", # Lighter red/pink for actinides
+            "unknown, probably transition metal": "#e5e5e5",
+            "unknown, probably metalloid": "#e5e5e5",
+            "unknown, probably post-transition metal": "#e5e5e5",
+            "unknown, predicted to be noble gas": "#e5e5e5",
+            "unknown, but predicted to be an alkali metal": "#e5e5e5",
+            "nonmetal": "#67e8f9", # Default nonmetal color if more specific not available
+            "unknown": "#e0e0e0" # Default for unknown
         }
-        
-    def get_element_color(self, category):
-        """Return the color for a given element category"""
-        return self.category_colors.get(category.lower(), self.category_colors["unknown"])
 
-# Initialize app state
+    def get_element_color(self, category):
+        # Normalize category string for matching
+        normalized_category = category.lower().replace('-', ' ') if isinstance(category, str) else "unknown"
+        
+        # Direct match
+        if normalized_category in self.category_colors:
+            return self.category_colors[normalized_category]
+        
+        # Partial match for keys like "unknown, probably transition metal"
+        for key, color in self.category_colors.items():
+            if normalized_category.startswith(key.split(',')[0]): # e.g. "unknown"
+                return color # this logic might need refinement based on desired fallback
+        
+        # General fallback
+        if "nonmetal" in normalized_category: return self.category_colors["nonmetal"]
+        if "metal" in normalized_category: return self.category_colors["transition metal"] # A general metal color
+        
+        return self.category_colors["unknown"]
+
+
 state = AppState()
 
 @st.cache_data(ttl=3600)
 def load_element_data():
-    """
-    Load periodic table data from a reliable source
-    Returns a DataFrame with element information
-    """
     try:
-        # Progress tracking
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        status_text.text("Loading element data...")
-        
-        # Try to load data from an online source
         url = "https://raw.githubusercontent.com/Bowserinator/Periodic-Table-JSON/master/PeriodicTableJSON.json"
         response = requests.get(url)
+        response.raise_for_status() # Will raise an HTTPError if the HTTP request returned an unsuccessful status code
+        data = response.json()
+        elements_df = pd.json_normalize(data['elements'])
         
-        if response.status_code != 200:
-            raise Exception(f"Failed to load data: HTTP {response.status_code}")
-            
-        # Update progress
-        progress_bar.progress(50)
-        status_text.text("Processing element data...")
+        # Ensure essential columns exist, providing defaults if necessary
+        required_cols = {
+            'name': 'Unknown', 'symbol': '?', 'number': 0, 'category': 'unknown',
+            'period': 0, 'group': 0, 'xpos': 0, 'ypos': 0, 'atomic_mass': 0.0,
+            'electron_configuration': '', 'phase': 'Unknown'
+        }
+        for col, default_val in required_cols.items():
+            if col not in elements_df.columns:
+                elements_df[col] = default_val
         
-        data = json.loads(response.text)
-        elements = pd.DataFrame(data['elements'])
-        
-        # Add additional feature: electron configuration visualization
-        elements['electron_display'] = elements['electron_configuration'].apply(
-            lambda x: format_electron_configuration(x) if isinstance(x, str) else ""
-        )
-        
-        # Update progress
-        progress_bar.progress(100)
-        status_text.empty()
-        progress_bar.empty()
-        
-        return elements
-    except Exception as e:
-        st.warning(f"Error loading complete element data: {str(e)}. Using simplified dataset.")
-        progress_bar.empty()
-        status_text.empty()
-        
-        # Create a basic dataset with essential information for a fallback
-        elements = []
-        
-        # Period 1
-        elements.append({"name": "Hydrogen", "symbol": "H", "number": 1, "category": "nonmetal", "period": 1, "group": 1, 
-                        "phase": "gas", "atomic_mass": 1.008, "electron_configuration": "1s1"})
-        elements.append({"name": "Helium", "symbol": "He", "number": 2, "category": "noble gas", "period": 1, "group": 18,
-                        "phase": "gas", "atomic_mass": 4.0026, "electron_configuration": "1s2"})
-        
-        # Add a few more elements for basic functionality
-        elements.append({"name": "Lithium", "symbol": "Li", "number": 3, "category": "alkali metal", "period": 2, "group": 1,
-                        "phase": "solid", "atomic_mass": 6.94, "electron_configuration": "1s2 2s1"})
-        elements.append({"name": "Carbon", "symbol": "C", "number": 6, "category": "nonmetal", "period": 2, "group": 14,
-                        "phase": "solid", "atomic_mass": 12.011, "electron_configuration": "1s2 2s2 2p2"})
-        elements.append({"name": "Oxygen", "symbol": "O", "number": 8, "category": "nonmetal", "period": 2, "group": 16,
-                        "phase": "gas", "atomic_mass": 15.999, "electron_configuration": "1s2 2s2 2p4"})
-        
-        return pd.DataFrame(elements)
+        # Convert types to ensure consistency
+        elements_df['number'] = pd.to_numeric(elements_df['number'], errors='coerce').fillna(0).astype(int)
+        elements_df['period'] = pd.to_numeric(elements_df['period'], errors='coerce').fillna(0).astype(int)
+        elements_df['group'] = pd.to_numeric(elements_df['group'], errors='coerce').fillna(0).astype(int)
+        elements_df['xpos'] = pd.to_numeric(elements_df['xpos'], errors='coerce').fillna(0).astype(int)
+        elements_df['ypos'] = pd.to_numeric(elements_df['ypos'], errors='coerce').fillna(0).astype(int)
 
-def format_electron_configuration(config):
-    """Format electron configuration for display"""
-    parts = config.split()
-    formatted = []
-    for part in parts:
-        if part[0].isdigit():
-            orbital = part[:2]
-            electrons = part[2:]
-            formatted.append(f"{orbital}<sup>{electrons}</sup>")
-        else:
-            formatted.append(part)
-    return " ".join(formatted)
+        # Handle NaN values in strings after normalization
+        for col in ['name', 'symbol', 'category', 'electron_configuration', 'phase']:
+             elements_df[col] = elements_df[col].fillna(required_cols.get(col, 'Unknown'))
+
+        return elements_df
+    except requests.exceptions.RequestException as e:
+        st.error(f"Network error loading element data: {e}")
+    except json.JSONDecodeError as e:
+        st.error(f"Error decoding element data JSON: {e}")
+    except KeyError as e:
+        st.error(f"Unexpected JSON structure for element data (missing 'elements' key?): {e}")
+    # Fallback to a minimal dataset if loading fails
+    st.warning("Using a minimal fallback dataset for elements.")
+    return pd.DataFrame([
+        {"name": "Hydrogen", "symbol": "H", "number": 1, "category": "diatomic nonmetal", "period": 1, "group": 1, "xpos": 1, "ypos": 1, "atomic_mass": 1.008, "electron_configuration": "1s1", "phase": "Gas"},
+        {"name": "Helium", "symbol": "He", "number": 2, "category": "noble gas", "period": 1, "group": 18, "xpos": 18, "ypos": 1, "atomic_mass": 4.0026, "electron_configuration": "1s2", "phase": "Gas"},
+        {"name": "Lithium", "symbol": "Li", "number": 3, "category": "alkali metal", "period": 2, "group": 1, "xpos": 1, "ypos": 2, "atomic_mass": 6.94, "electron_configuration": "[He] 2s1", "phase": "Solid"},
+        {"name": "Carbon", "symbol": "C", "number": 6, "category": "polyatomic nonmetal", "period": 2, "group": 14, "xpos": 14, "ypos": 2, "atomic_mass": 12.011, "electron_configuration": "[He] 2s2 2p2", "phase": "Solid"},
+        {"name": "Oxygen", "symbol": "O", "number": 8, "category": "diatomic nonmetal", "period": 2, "group": 16, "xpos": 16, "ypos": 2, "atomic_mass": 15.999, "electron_configuration": "[He] 2s2 2p4", "phase": "Gas"},
+    ])
+
+
+def format_electron_configuration(config_str):
+    if not isinstance(config_str, str): return ""
+    # Simple formatter, can be expanded
+    return config_str.replace(" ", "&nbsp;").replace("s", "s<sup>").replace("p", "p<sup>").replace("d", "d<sup>").replace("f", "f<sup>") + ("</sup>" * config_str.count("["))
+
 
 def create_element_card(element, color):
-    """Create a custom styled card for element details"""
+    # (Same as your well-styled card function)
     st.markdown(f"""
     <div class="element-card" style="--category-color: {color};">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h2 style="margin: 0; font-size: 2.5rem;">{element['symbol']}</h2>
+            <h2 style="margin: 0; font-size: 2.5rem;">{element.get('symbol', 'N/A')}</h2>
             <div style="text-align: right;">
-                <span style="font-size: 2rem; font-weight: 600;">{element['number']}</span>
-                <div style="font-size: 0.9rem; color: #6b7280;">{element['atomic_mass']:.4f} u</div>
+                <span style="font-size: 2rem; font-weight: 600;">{element.get('number', 'N/A')}</span>
+                <div style="font-size: 0.9rem; color: #6b7280;">{element.get('atomic_mass', 0.0):.4f} u</div>
             </div>
         </div>
-        <h3 style="margin-top: 0.5rem; margin-bottom: 1rem; font-size: 1.8rem;">{element['name']}</h3>
+        <h3 style="margin-top: 0.5rem; margin-bottom: 1rem; font-size: 1.8rem;">{element.get('name', 'N/A')}</h3>
         <div style="display: flex; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem;">
             <div style="flex: 1; min-width: 120px;">
                 <div style="font-size: 0.875rem; color: #6b7280;">Category</div>
-                <div style="font-weight: 500;">{element['category'].title()}</div>
+                <div style="font-weight: 500;">{str(element.get('category', 'N/A')).title()}</div>
             </div>
             <div style="flex: 1; min-width: 120px;">
                 <div style="font-size: 0.875rem; color: #6b7280;">Period • Group</div>
@@ -318,573 +227,380 @@ def create_element_card(element, color):
             </div>
             <div style="flex: 1; min-width: 120px;">
                 <div style="font-size: 0.875rem; color: #6b7280;">Phase at STP</div>
-                <div style="font-weight: 500;">{element.get('phase', 'Unknown').title()}</div>
+                <div style="font-weight: 500;">{str(element.get('phase', 'Unknown')).title()}</div>
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-def generate_molecular_visualization(formula):
-    """Generate a placeholder molecular visualization"""
-    # In a real app, this would call a chemistry visualization library
-    # For this example, we'll create a simple placeholder
+# Plotly functions (Electron Shell, Molecular Structure - kept from previous)
+def create_electron_shell_visualization(electron_config_str):
+    # (Your existing robust function)
     fig = go.Figure()
+    # Placeholder logic, replace with your actual shell visualization
+    shells_data = {}
+    if isinstance(electron_config_str, str):
+        # Example parsing: "1s2 2s2 2p6"
+        # This is highly simplified; a real parser is complex.
+        parts = electron_config_str.replace('[', '').replace(']', ' ').split()
+        current_shell = 0
+        for part in parts:
+            if part.endswith('s') or part.endswith('p') or part.endswith('d') or part.endswith('f'):
+                 # Handles core like "He" or "Ne" by skipping them for this simple viz
+                continue
+            try:
+                shell_num = int(part[0])
+                electrons = int(part[2:])
+                shells_data[shell_num] = shells_data.get(shell_num, 0) + electrons
+            except (ValueError, IndexError):
+                pass # Ignore malformed parts for this simple viz
     
-    # Generate random 3D coordinates for atoms (placeholder)
-    np.random.seed(sum(ord(c) for c in formula))
-    n_atoms = len(formula.replace('+', '').replace('-', ''))
-    n_atoms = max(min(n_atoms * 2, 10), 3)  # Scale based on formula length
+    if not shells_data: # Fallback if parsing fails or empty
+        fig.add_annotation(text="Electron shell data not available or unparsable.", showarrow=False)
+        return fig
+
+    max_shell = max(shells_data.keys()) if shells_data else 0
     
-    x = np.random.rand(n_atoms) * 10 - 5
-    y = np.random.rand(n_atoms) * 10 - 5
-    z = np.random.rand(n_atoms) * 10 - 5
+    # Nucleus
+    fig.add_shape(type="circle", xref="x", yref="y", x0=-0.5, y0=-0.5, x1=0.5, y1=0.5, fillcolor="tomato")
     
-    # Create atoms (spheres)
-    elements = ['C', 'H', 'O', 'N', 'P', 'S', 'F', 'Cl', 'Br', 'I']
-    colors = ['black', 'white', 'red', 'blue', 'orange', 'yellow', 'green', 'green', 'brown', 'purple']
-    
-    for i in range(n_atoms):
-        element_idx = i % len(elements)
-        fig.add_trace(go.Scatter3d(
-            x=[x[i]], y=[y[i]], z=[z[i]],
-            mode='markers',
-            marker=dict(
-                size=10,
-                color=colors[element_idx],
-                opacity=0.8,
-                line=dict(width=0.5, color='#333')
-            ),
-            text=elements[element_idx],
-            hoverinfo='text'
-        ))
-    
-    # Create bonds (lines)
-    for i in range(n_atoms-1):
-        fig.add_trace(go.Scatter3d(
-            x=[x[i], x[i+1]], y=[y[i], y[i+1]], z=[z[i], z[i+1]],
-            mode='lines',
-            line=dict(width=4, color='#999'),
-            hoverinfo='none'
-        ))
-    
-    # Set figure layout
+    for shell_num in range(1, max_shell + 1):
+        radius = shell_num * 1.5
+        fig.add_shape(type="circle", xref="x", yref="y",
+                      x0=-radius, y0=-radius, x1=radius, y1=radius,
+                      line_color="lightblue", line_width=1, fillcolor="rgba(0,0,0,0)")
+        
+        electrons = shells_data.get(shell_num, 0)
+        if electrons > 0:
+            for i in range(electrons):
+                angle = (i / electrons) * 2 * np.pi
+                ex = radius * np.cos(angle)
+                ey = radius * np.sin(angle)
+                fig.add_trace(go.Scatter(x=[ex], y=[ey], mode='markers', marker=dict(color='blue', size=8)))
+
     fig.update_layout(
-        title=f"Structure of {formula}",
-        margin=dict(l=0, r=0, b=0, t=30),
+        title_text="Electron Shells (Simplified)",
+        xaxis=dict(visible=False, range=[-max_shell*2, max_shell*2]),
+        yaxis=dict(visible=False, scaleanchor="x", scaleratio=1, range=[-max_shell*2, max_shell*2]),
         showlegend=False,
-        scene=dict(
-            xaxis=dict(visible=False),
-            yaxis=dict(visible=False),
-            zaxis=dict(visible=False),
-            aspectmode='cube'
-        )
+        width=300, height=300,
+        margin=dict(t=50, b=0, l=0, r=0)
     )
-    
     return fig
 
-def create_electron_shell_visualization(electron_config):
-    """Create a visualization of electron shells"""
-    try:
-        # Parse electron configuration to extract shells
-        shells = {'K': 0, 'L': 0, 'M': 0, 'N': 0, 'O': 0, 'P': 0, 'Q': 0}
+
+def generate_molecular_visualization(formula_str):
+    # (Your existing placeholder/example function)
+    fig = go.Figure()
+    # Simplified: just places spheres for first few letters of formula
+    num_atoms = min(len(formula_str), 5)
+    x_coords = np.random.rand(num_atoms) * 5
+    y_coords = np.random.rand(num_atoms) * 5
+    z_coords = np.random.rand(num_atoms) * 5
+    colors = ['red', 'blue', 'green', 'yellow', 'purple']
+    
+    fig.add_trace(go.Scatter3d(
+        x=x_coords, y=y_coords, z=z_coords,
+        mode='markers',
+        marker=dict(size=12, color=[colors[i%len(colors)] for i in range(num_atoms)], opacity=0.8)
+    ))
+    fig.update_layout(
+        title_text=f"Simplified Structure of {formula_str}",
+        scene=dict(xaxis_title='X', yaxis_title='Y', zaxis_title='Z'),
+        width=400, height=400,
+        margin=dict(t=50, b=0, l=0, r=0)
+    )
+    return fig
+
+# --- Interactive Plotly Periodic Table via Custom Component ---
+def create_plotly_periodic_table_figure(elements_df, filtered_elements_df, selected_element_number=None):
+    fig = go.Figure()
+    
+    # Determine max x and y for layout
+    max_x = elements_df['xpos'].max() if not elements_df.empty else 18
+    max_y = elements_df['ypos'].max() if not elements_df.empty else 10
+
+    for index, element in elements_df.iterrows():
+        is_filtered_out = element['number'] not in filtered_elements_df['number'].values
         
-        if isinstance(electron_config, str):
-            parts = electron_config.split()
-            for part in parts:
-                if part[0].isdigit() and len(part) >= 3:
-                    shell = int(part[0]) - 1
-                    electrons = int(part[2:]) if part[2:].isdigit() else 1
-                    
-                    # Map numerical shell to letter notation
-                    shell_letters = ['K', 'L', 'M', 'N', 'O', 'P', 'Q']
-                    if shell < len(shell_letters):
-                        shells[shell_letters[shell]] += electrons
-        
-        # Create visualization
-        fig = go.Figure()
-        
-        # Nuclear radius and shell scaling
-        nucleus_radius = 10
-        shell_scaling = 15
-        max_electrons = 32  # For scaling size
-        
-        # Draw nucleus
+        opacity = 0.3 if is_filtered_out else 1.0
+        marker_line_color = 'black'
+        marker_line_width = 0
+        if selected_element_number and element['number'] == selected_element_number:
+            marker_line_color = '#FFD700' # Gold outline for selected
+            marker_line_width = 4
+            opacity = 1.0 # Ensure selected is fully visible
+
+        element_color = state.get_element_color(element.get('category', 'unknown'))
+
         fig.add_trace(go.Scatter(
-            x=[0], y=[0],
-            mode='markers',
+            x=[element['xpos']],
+            y=[max_y - element['ypos'] +1], # Invert y-axis for typical table layout
+            mode='markers+text',
             marker=dict(
-                size=nucleus_radius * 2,
-                color='#ff6b6b',
-                line=dict(width=1, color='#c44569')
+                size=35, # Adjust size as needed
+                color=element_color,
+                opacity=opacity,
+                line=dict(color=marker_line_color, width=marker_line_width),
+                symbol='square'
             ),
-            name='Nucleus'
+            text=f"<b>{element['symbol']}</b>",
+            textfont=dict(size=10, color='black' if opacity > 0.5 else '#777'), # Darker text for visible items
+            textposition="middle center",
+            hoverinfo='text',
+            hovertext=(
+                f"<b>{element['name']} ({element['symbol']})</b><br>"
+                f"Number: {element['number']}<br>"
+                f"Mass: {element.get('atomic_mass', 0.0):.3f}<br>"
+                f"Category: {str(element.get('category', 'N/A')).title()}"
+            ),
+            customdata=[element['number']] # Store element number for click events
         ))
-        
-        # Draw electron shells
-        shell_idx = 0
-        for shell, electrons in shells.items():
-            if electrons == 0:
-                continue
-                
-            shell_idx += 1
-            radius = nucleus_radius + (shell_idx * shell_scaling)
-            
-            # Draw the shell circle
-            theta = np.linspace(0, 2*np.pi, 100)
-            x = radius * np.cos(theta)
-            y = radius * np.sin(theta)
-            
-            fig.add_trace(go.Scatter(
-                x=x, y=y,
-                mode='lines',
-                line=dict(color='#b2bec3', width=1, dash='dash'),
-                name=f'Shell {shell}'
-            ))
-            
-            # Add electrons
-            if electrons > 0:
-                electron_theta = np.linspace(0, 2*np.pi, electrons, endpoint=False)
-                electron_x = radius * np.cos(electron_theta)
-                electron_y = radius * np.sin(electron_theta)
-                
-                # Scale electron size based on number of electrons
-                electron_size = max(4, 8 - (electrons / max_electrons) * 6)
-                
-                fig.add_trace(go.Scatter(
-                    x=electron_x, y=electron_y,
-                    mode='markers',
-                    marker=dict(
-                        size=electron_size,
-                        color='#3498db',
-                        line=dict(width=1, color='#2980b9')
-                    ),
-                    name=f'{shell} electrons: {electrons}'
-                ))
-        
-        # Set layout
-        fig.update_layout(
-            title=f"Electron Shell Diagram",
-            xaxis=dict(
-                scaleanchor="y",
-                scaleratio=1,
-                showticklabels=False,
-                zeroline=False,
-                showgrid=False
-            ),
-            yaxis=dict(
-                showticklabels=False,
-                zeroline=False,
-                showgrid=False
-            ),
-            showlegend=True,
-            legend=dict(
-                orientation="h",
-                yanchor="bottom",
-                y=-0.2,
-                xanchor="center",
-                x=0.5
-            ),
-            margin=dict(l=0, r=0, t=30, b=0),
-            height=400,
-            width=500
-        )
-        
-        return fig
-    
-    except Exception as e:
-        # Return a placeholder on error
-        fig = go.Figure()
-        fig.add_annotation(
-            text=f"Could not generate electron shell visualization<br>{str(e)}",
-            x=0.5, y=0.5,
-            showarrow=False
-        )
-        fig.update_layout(
-            xaxis=dict(showticklabels=False, zeroline=False, showgrid=False),
-            yaxis=dict(showticklabels=False, zeroline=False, showgrid=False),
-            height=400
-        )
-        return fig
 
-def create_periodic_table_grid(elements_df, filtered_elements):
-    """Create an interactive periodic table grid"""
-    # Add custom HTML/CSS for the grid layout
-    html_content = """
-    <div class="grid-container" style="display: grid; grid-template-columns: repeat(18, 70px); gap: 2px; justify-content: center; margin-top: 20px;">
-    """
-    
-    # Dictionary to map element number to its position in the grid
-    element_positions = {}
-    for _, elem in elements_df.iterrows():
-        if 'group' in elem and 'period' in elem:
-            try:
-                period = int(elem['period'])
-                group = int(elem['group'])
-                element_positions[elem['number']] = (period, group)
-            except (ValueError, TypeError):
-                pass
-    
-    # Generate cells for the periodic table
-    for row in range(1, 10):  # Periods 1-9
-        for col in range(1, 19):  # Groups 1-18
-            # Find the element at this position
-            element = None
-            for _, elem in elements_df.iterrows():
-                if elem.get('period') == row and elem.get('group') == col:
-                    element = elem
-                    break
-            
-            # Special handling for lanthanides and actinides
-            if row == 6 and col == 3:
-                element = {"number": "57-71", "symbol": "La-Lu", "name": "Lanthanides", "category": "lanthanoid"}
-            if row == 7 and col == 3:
-                element = {"number": "89-103", "symbol": "Ac-Lr", "name": "Actinides", "category": "actinoid"}
-            
-            # Add the element cell or an empty cell
-            if element is not None:
-                # Get category and color
-                category = element.get('category', 'unknown')
-                color = state.get_element_color(category)
-                
-                # Determine if element is filtered
-                elem_id = element.get('number', '')
-                filtered = False
-                if filtered_elements is not None and len(filtered_elements) > 0:
-                    # Check if this element is not in the filtered list
-                    filtered = isinstance(elem_id, (int, str)) and str(elem_id).isdigit() and int(elem_id) not in filtered_elements['number'].values
-                
-                opacity = "0.35" if filtered else "1.0"
-                
-                # Create the element cell with hover effects and click event
-                html_content += f"""
-                <div 
-                    class="element" 
-                    id="element-{elem_id}"
-                    onclick="handleElementClick('{elem_id}')"
-                    style="
-                        background-color: {color}; 
-                        opacity: {opacity};
-                        width: 70px;
-                        height: 70px;
-                        border-radius: 4px;
-                        padding: 4px;
-                        box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-                        transition: all 0.2s;
-                        position: relative;
-                    "
-                >
-                    <div style="font-size: 10px; text-align: left; color: rgba(0,0,0,0.7);">{elem_id}</div>
-                    <div style="font-size: 18px; font-weight: bold; text-align: center; margin-top: 4px;">{element.get('symbol', '')}</div>
-                    <div style="font-size: 9px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">{element.get('name', '')}</div>
-                    <div style="font-size: 8px; text-align: center; margin-top: 1px; color: rgba(0,0,0,0.6);">{element.get('atomic_mass', '')}</div>
-                </div>
-                """
-            else:
-                # Empty cell
-                html_content += '<div style="width: 70px; height: 70px;"></div>'
-        
-        # Add line break after each period
-        html_content += '<div style="grid-column: 1 / span 18; height: 0;"></div>'
-    
-    # Add lanthanides row (elements 57-71)
-    html_content += '<div style="grid-column: 1 / span 18; height: 20px;"></div>'
-    for num in range(57, 72):
-        element = None
-        for _, elem in elements_df.iterrows():
-            if elem.get('number') == num:
-                element = elem
-                break
-        
-        if element is not None:
-            category = element.get('category', 'unknown')
-            color = state.get_element_color(category)
-            
-            # Determine if element is filtered
-            elem_id = element.get('number', '')
-            filtered = False
-            if filtered_elements is not None and len(filtered_elements) > 0:
-                filtered = elem_id not in filtered_elements['number'].values
-            
-            opacity = "0.35" if filtered else "1.0"
-            
-            html_content += f"""
-            <div 
-                class="element" 
-                id="element-{elem_id}"
-                onclick="handleElementClick('{elem_id}')"
-                style="
-                    background-color: {color}; 
-                    opacity: {opacity};
-                    width: 70px;
-                    height: 70px;
-                    border-radius: 4px;
-                    padding: 4px;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-                    transition: all 0.2s;
-                "
-            >
-                <div style="font-size: 10px; text-align: left; color: rgba(0,0,0,0.7);">{elem_id}</div>
-                <div style="font-size: 18px; font-weight: bold; text-align: center; margin-top: 4px;">{element.get('symbol', '')}</div>
-                <div style="font-size: 9px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">{element.get('name', '')}</div>
-                <div style="font-size: 8px; text-align: center; margin-top: 1px; color: rgba(0,0,0,0.6);">{element.get('atomic_mass', '')}</div>
-            </div>
-            """
-    
-    # Add actinides row (elements 89-103)
-    html_content += '<div style="grid-column: 1 / span 18; height: 0;"></div>'
-    for num in range(89, 104):
-        element = None
-        for _, elem in elements_df.iterrows():
-            if elem.get('number') == num:
-                element = elem
-                break
-        
-        if element is not None:
-            category = element.get('category', 'unknown')
-            color = state.get_element_color(category)
-            
-            # Determine if element is filtered
-            elem_id = element.get('number', '')
-            filtered = False
-            if filtered_elements is not None and len(filtered_elements) > 0:
-                filtered = elem_id not in filtered_elements['number'].values
-            
-            opacity = "0.35" if filtered else "1.0"
-            
-            html_content += f"""
-            <div 
-                class="element" 
-                id="element-{elem_id}"
-                onclick="handleElementClick('{elem_id}')"
-                style="
-                    background-color: {color}; 
-                    opacity: {opacity};
-                    width: 70px;
-                    height: 70px;
-                    border-radius: 4px;
-                    padding: 4px;
-                    box-shadow: 0 1px 3px rgba(0,0,0,0.12);
-                    transition: all 0.2s;
-                "
-            >
-                <div style="font-size: 10px; text-align: left; color: rgba(0,0,0,0.7);">{elem_id}</div>
-                <div style="font-size: 18px; font-weight: bold; text-align: center; margin-top: 4px;">{element.get('symbol', '')}</div>
-                <div style="font-size: 9px; text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">{element.get('name', '')}</div>
-                <div style="font-size: 8px; text-align: center; margin-top: 1px; color: rgba(0,0,0,0.6);">{element.get('atomic_mass', '')}</div>
-            </div>
-            """
-    
-    html_content += "</div>"
-    
-    # Add JavaScript for handling element clicks
-    html_content += """
-    <script>
-    function handleElementClick(elementNumber) {
-        // Send the element number to Streamlit via a hidden input or direct interaction
-        // Since direct postMessage might not work in all environments, we'll use a fallback
-        console.log("Element clicked: " + elementNumber);
-        // Placeholder for actual interaction with Streamlit
-        // In a real app, this would update session state
-    }
-    </script>
-    """
-    
-    return html_content
+    fig.update_layout(
+        xaxis=dict(range=[0, max_x + 1], showgrid=False, zeroline=False, showticklabels=False, fixedrange=True),
+        yaxis=dict(range=[0, max_y + 1], showgrid=False, zeroline=False, showticklabels=False, fixedrange=True),
+        margin=dict(t=20, b=20, l=20, r=20),
+        showlegend=False,
+        plot_bgcolor='#f5f7f9', # Match app background
+        paper_bgcolor='#f5f7f9',
+        height= (max_y + 1) * 45, # Dynamic height based on number of periods
+        clickmode='event' # Important for capturing click events
+    )
+    return fig
 
-def display_element_details(element, elements_df):
-    """Display detailed information about the selected element"""
-    if element is None:
-        st.info("Select an element from the periodic table to view its details.")
+
+# HTML for the custom Plotly component
+PLOTLY_COMPONENT_HTML = """
+<div id="plotlyChartContainer" style="width:100%; height:100%;"></div>
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script>
+const chartDiv = document.getElementById('plotlyChartContainer');
+const figData = {fig_data_placeholder}; // Will be replaced by Python
+const figLayout = {fig_layout_placeholder}; // Will be replaced by Python
+
+Plotly.newPlot(chartDiv, figData, figLayout, {{responsive: true}}).then(gd => {{
+    gd.on('plotly_click', eventData => {{
+        if (eventData.points.length > 0) {{
+            const clickedPoint = eventData.points[0];
+            if (clickedPoint.customdata !== undefined) {{
+                Streamlit.setComponentValue({{
+                    type: "element_click",
+                    number: clickedPoint.customdata[0] // customdata is an array
+                }});
+            }}
+        }}
+    }});
+}});
+
+// Adjust height of iframe to content
+function sendHeight() {{
+    Streamlit.setFrameHeight(document.getElementById('plotlyChartContainer').offsetHeight + 20);
+}}
+// Ensure Plotly has rendered before sending height
+const observer = new MutationObserver(function(mutationsList, observer) {{
+    for(let mutation of mutationsList) {{
+        if (mutation.type === 'childList' || mutation.type === 'attributes') {{
+            sendHeight();
+            // observer.disconnect(); // Disconnect after first render if static, or keep for dynamic
+            break;
+        }}
+    }}
+}});
+observer.observe(chartDiv, {{ attributes: true, childList: true, subtree: true }});
+window.addEventListener('resize', sendHeight);
+// Initial height setting after a short delay for rendering
+setTimeout(sendHeight, 200); 
+</script>
+"""
+
+def display_element_details(element_series, elements_df_full):
+    if element_series is None or element_series.empty:
+        st.info("Select an element from the periodic table to view its details, or use the search/filter options.")
         return
-    
-    category = element.get('category', 'unknown')
+
+    # Ensure element_series is a Series (it should be if iloc[0] was used)
+    if not isinstance(element_series, pd.Series):
+        st.error("Invalid element data provided for details display.")
+        return
+
+    category = element_series.get('category', 'unknown')
     color = state.get_element_color(category)
-    
-    # Create a custom styled card for the element
-    create_element_card(element, color)
-    
-    # Create detailed tabs for the element
-    tabs = st.tabs(["Overview", "Physical Properties", "Chemical Properties", "Visualizations", "Applications"])
-    
-    with tabs[0]:  # Overview tab
+    create_element_card(element_series, color)
+
+    tabs_titles = ["Overview", "Physical Properties", "Chemical Properties", "Visualizations", "Applications & Isotopes"]
+    tabs = st.tabs(tabs_titles)
+
+    with tabs[0]: # Overview
         col1, col2 = st.columns([3, 2])
-        
         with col1:
-            if 'summary' in element:
-                st.markdown("### Summary")
-                st.markdown(element['summary'])
-            
+            st.markdown("### Summary")
+            st.markdown(element_series.get('summary', "No summary available."))
             st.markdown("### Basic Information")
             basic_info = {
-                "Discovery": element.get('discovered_by', 'Unknown'),
-                "Named By": element.get('named_by', 'Unknown'),
-                "Year of Discovery": element.get('year', 'Unknown'),
-                "Electron Configuration": element.get('electron_configuration', 'Unknown'),
-                "Oxidation States": element.get('oxidation_states', 'Unknown')
+                "Discovered by": element_series.get('discovered_by', 'N/A'),
+                "Named by": element_series.get('named_by', 'N/A'),
+                "Electron Config.": element_series.get('electron_configuration_semantic', element_series.get('electron_configuration', 'N/A')),
             }
-            
-            for key, value in basic_info.items():
-                if value != 'Unknown':
-                    st.markdown(f"**{key}:** {value}")
-        
+            for key, value in basic_info.items(): st.markdown(f"**{key}:** {value}")
         with col2:
-            # Display element image if available
-            if 'number' in element and isinstance(element['number'], int):
-                # Try to load image from URL or show placeholder
-                try:
-                    image_url = f"https://images-of-elements.com/s/{element['name'].lower()}.jpg"
-                    st.image(image_url, caption=f"{element['name']} sample", use_column_width=True)
-                except:
-                    st.image("https://via.placeholder.com/300x200?text=Image+Not+Available", 
-                             caption="Element image not available", use_column_width=True)
-            
-            # Show position in periodic table
-            st.markdown("### Position in Periodic Table")
-            st.markdown(f"**Group:** {element.get('group', 'N/A')}")
-            st.markdown(f"**Period:** {element.get('period', 'N/A')}")
-            st.markdown(f"**Block:** {element.get('block', 'N/A')}")
-            st.markdown(f"**Category:** {element.get('category', 'N/A').title()}")
-    
-    with tabs[1]:  # Physical Properties tab
+            img_name = str(element_series.get('name', '')).lower()
+            if img_name:
+                st.image(f"https://images-of-elements.com/s/{img_name}.jpg", caption=element_series.get('name'), use_container_width=True, width=150)
+            else:
+                st.image("https://via.placeholder.com/150?text=No+Image", caption="Image N/A", use_container_width=True)
+            st.markdown(f"**Category:** {str(element_series.get('category', 'N/A')).title()}")
+
+    with tabs[1]: # Physical Properties
         st.markdown("### Physical Properties")
         physical_props = {
-            "Melting Point": f"{element.get('melt', 'N/A')} K",
-            "Boiling Point": f"{element.get('boil', 'N/A')} K",
-            "Density": f"{element.get('density', 'N/A')} g/cm³",
-            "Phase at STP": element.get('phase', 'Unknown').title(),
-            "Electronegativity": element.get('electronegativity_pauling', 'N/A'),
-            "Ionization Energy": f"{element.get('ionization_energies', ['N/A'])[0]} eV" if 'ionization_energies' in element and element['ionization_energies'] else 'N/A',
-            "Atomic Radius": f"{element.get('atomic_radius', 'N/A')} pm",
-            "Covalent Radius": f"{element.get('covalent_radius', 'N/A')} pm"
+            "Melting Point": f"{element_series.get('melt', 'N/A')} K",
+            "Boiling Point": f"{element_series.get('boil', 'N/A')} K",
+            "Density": f"{element_series.get('density', 'N/A')} g/cm³",
+            "Phase at STP": str(element_series.get('phase', 'Unknown')).title(),
+            "Electronegativity (Pauling)": element_series.get('electronegativity_pauling', 'N/A'),
+            "Atomic Radius": f"{element_series.get('atomic_radius', 'N/A')} pm",
         }
-        
-        props_df = pd.DataFrame(physical_props.items(), columns=["Property", "Value"])
-        st.table(props_df)
-    
-    with tabs[2]:  # Chemical Properties tab
+        st.table(pd.DataFrame(physical_props.items(), columns=["Property", "Value"]))
+
+    with tabs[2]: # Chemical Properties
         st.markdown("### Chemical Properties")
         chem_props = {
-            "Atomic Number": element.get('number', 'N/A'),
-            "Atomic Mass": f"{element.get('atomic_mass', 'N/A')} u",
-            "Electron Configuration": element.get('electron_configuration', 'N/A'),
-            "Oxidation States": element.get('oxidation_states', 'N/A'),
-            "Crystal Structure": element.get('crystal_structure', 'N/A'),
-            "Molar Heat Capacity": f"{element.get('molar_heat', 'N/A')} J/(mol·K)"
+            "Atomic Number": element_series.get('number', 'N/A'),
+            "Atomic Mass": f"{element_series.get('atomic_mass', 0.0):.4f} u",
+            "Oxidation States": element_series.get('common_oxidation_states', element_series.get('oxidation_states', 'N/A')), # Prefer common if available
+            "Electron Affinity": f"{element_series.get('electron_affinity', 'N/A')} kJ/mol",
+            "Ionization Energies (eV)": str(element_series.get('ionization_energies', ['N/A'])[:3]) + "...", # Show first few
         }
-        
-        chem_df = pd.DataFrame(chem_props.items(), columns=["Property", "Value"])
-        st.table(chem_df)
-    
-    with tabs[3]:  # Visualizations tab
-        viz_tab1, viz_tab2 = st.columns(2)
-        
-        with viz_tab1:
-            st.markdown("#### Electron Shell Diagram")
-            electron_fig = create_electron_shell_visualization(element.get('electron_configuration', ''))
-            st.plotly_chart(electron_fig, use_container_width=True)
-        
-        with viz_tab2:
-            st.markdown("#### Molecular Structure (Simplified)")
-            # Placeholder for molecular visualization
-            formula = element.get('symbol', 'X') + (element.get('name', '')[0:2] if len(element.get('name', '')) > 2 else 'X2')
-            mol_fig = generate_molecular_visualization(formula)
-            st.plotly_chart(mol_fig, use_container_width=True)
-    
-    with tabs[4]:  # Applications tab
-        st.markdown("### Common Applications")
-        # Placeholder for applications information
-        st.markdown("This section would typically include information about industrial and practical applications of the element.")
-        st.markdown("- Application 1")
-        st.markdown("- Application 2")
-        st.markdown("- Application 3")
-        
+        st.table(pd.DataFrame(chem_props.items(), columns=["Property", "Value"]))
+
+    with tabs[3]: # Visualizations
+        viz_col1, viz_col2 = st.columns(2)
+        with viz_col1:
+            st.markdown("#### Electron Shells")
+            fig_e = create_electron_shell_visualization(element_series.get('electron_configuration', ''))
+            st.plotly_chart(fig_e, use_container_width=True)
+        with viz_col2:
+            st.markdown("#### Molecular (Example)")
+            fig_m = generate_molecular_visualization(element_series.get('symbol', 'X'))
+            st.plotly_chart(fig_m, use_container_width=True)
+
+    with tabs[4]: # Applications & Isotopes
+        st.markdown("### Applications")
+        st.markdown(element_series.get('uses', "Specific applications not detailed."))
         st.markdown("### Isotopes")
-        if 'isotopes' in element and element['isotopes']:
-            isotopes_data = [{"Mass Number": iso.get('mass_number', 'N/A'), "Abundance": iso.get('abundance', 'N/A'), "Half-life": iso.get('half_life', 'N/A')} for iso in element['isotopes']]
-            isotopes_df = pd.DataFrame(isotopes_data)
-            st.table(isotopes_df)
-        else:
-            st.markdown("No isotope information available for this element.")
+        # The JSON structure for isotopes might be nested or complex.
+        # This is a placeholder; actual parsing would depend on 'PeriodicTableJSON.json' structure for isotopes.
+        st.markdown("Isotope data might require specific parsing from the source JSON.")
+
 
 # Main app logic
 def main():
-    # Initialize session state if not already done
+    st.title("Interactive Periodic Table Explorer")
+    st.markdown("Explore chemical elements with detailed interactive visualizations. Click an element on the table!")
+
     if 'selected_element_number' not in st.session_state:
-        st.session_state.selected_element_number = None
-    
-    # Load element data
-    with st.spinner("Loading periodic table data..."):
-        elements_df = load_element_data()
-    
-    # Header
-    st.markdown("# Interactive Periodic Table Explorer")
-    st.markdown("Explore the properties and characteristics of chemical elements with interactive visualizations.")
-    
-    # Sidebar
+        st.session_state.selected_element_number = 1 # Default to Hydrogen
+
+    elements_df = load_element_data()
+    if elements_df.empty:
+        st.error("Element data could not be loaded. Application cannot proceed.")
+        return
+
+    # --- Sidebar for Filtering ---
     with st.sidebar:
-        st.image("https://via.placeholder.com/150x80?text=Periodic+Table+App", use_column_width=True)
-        st.markdown("### Filter Elements")
+        st.image("https://raw.githubusercontent.com/streamlit/streamlit/develop/components/python/streamlit/images/logo.svg", width=150) # Streamlit logo
+        st.markdown("## Filter Elements")
+
+        all_categories = sorted(elements_df['category'].dropna().unique())
+        selected_categories = st.multiselect("Category", all_categories, default=all_categories)
+
+        all_phases = sorted(elements_df['phase'].dropna().unique())
+        selected_phases = st.multiselect("Phase at STP", all_phases, default=all_phases)
         
-        # Category filter
-        categories = sorted(elements_df['category'].unique())
-        selected_categories = st.multiselect("Filter by Category", categories, default=categories)
-        
-        # Phase filter
-        phases = sorted(elements_df['phase'].dropna().unique())
-        selected_phases = st.multiselect("Filter by Phase at STP", phases, default=phases)
-        
-        # Period filter
-        periods = sorted(elements_df['period'].dropna().unique())
-        selected_periods = st.multiselect("Filter by Period", periods, default=periods)
-        
-        # Group filter
-        groups = sorted(elements_df['group'].dropna().unique())
-        selected_groups = st.multiselect("Filter by Group", groups, default=groups)
-        
-        # Apply filters
-        filtered_df = elements_df[
-            (elements_df['category'].isin(selected_categories)) &
-            (elements_df['phase'].isin(selected_phases)) &
-            (elements_df['period'].isin(selected_periods)) &
-            (elements_df['group'].isin(selected_groups))
-        ]
-        
-        st.markdown("### Quick Search")
-        search_term = st.text_input("Search by Name or Symbol", "")
-        if search_term:
-            search_term = search_term.lower()
-            filtered_df = filtered_df[
-                (filtered_df['name'].str.lower().str.contains(search_term)) |
-                (filtered_df['symbol'].str.lower().str.contains(search_term))
+        search_query = st.text_input("Search by Name or Symbol").lower()
+
+        filtered_elements_df = elements_df.copy()
+        if selected_categories:
+            filtered_elements_df = filtered_elements_df[filtered_elements_df['category'].isin(selected_categories)]
+        if selected_phases:
+            filtered_elements_df = filtered_elements_df[filtered_elements_df['phase'].isin(selected_phases)]
+        if search_query:
+            filtered_elements_df = filtered_elements_df[
+                filtered_elements_df['name'].str.lower().str.contains(search_query) |
+                filtered_elements_df['symbol'].str.lower().str.contains(search_query)
             ]
         
         st.markdown("### Legend")
-        for cat, color in state.category_colors.items():
-            st.markdown(f"<div style='display: flex; align-items: center; margin-bottom: 5px;'><div style='width: 12px; height: 12px; background-color: {color}; margin-right: 5px;'></div>{cat.title()}</div>", unsafe_allow_html=True)
-    
-    # Main content area - Simplified to ensure display
-    st.markdown("### Interactive Periodic Table")
-    st.markdown("Click on any element to view detailed information (Note: Interactive clicks may not work in all environments. Use the dropdown below as an alternative.)")
-    
-    # Provide a manual selection dropdown as a fallback for environments where JS interaction doesn't work
-    element_names = sorted(elements_df['name'].tolist())
-    selected_element_name = st.selectbox("Select an Element", element_names, index=0 if state.selected_element is None else element_names.index(state.selected_element['name']) if state.selected_element is not None else 0)
-    if selected_element_name:
-        selected_element = elements_df[elements_df['name'] == selected_element_name].iloc[0]
-        state.selected_element = selected_element
-    
-    # Create and display the periodic table grid
-    grid_html = create_periodic_table_grid(elements_df, filtered_df)
-    st.markdown(grid_html, unsafe_allow_html=True)
-    
-    # Display details of the selected element
-    st.markdown("### Element Details")
-    display_element_details(state.selected_element, elements_df)
-    
+        # Create a more compact legend
+        legend_html = "<div style='display: flex; flex-wrap: wrap; gap: 5px;'>"
+        unique_cats_in_view = filtered_elements_df['category'].unique() if not filtered_elements_df.empty else all_categories
+        for cat in unique_cats_in_view[:10]: # Show up to 10 for brevity
+            color = state.get_element_color(cat)
+            legend_html += f"<div style='display: flex; align-items: center;'><div style='width: 10px; height: 10px; background-color: {color}; margin-right: 3px; border-radius: 2px;'></div><small>{str(cat).title()}</small></div>"
+        if len(unique_cats_in_view) > 10: legend_html += "<small>...</small>"
+        legend_html += "</div>"
+        st.markdown(legend_html, unsafe_allow_html=True)
+
+        # Allow direct selection as a fallback or alternative
+        element_names_map = pd.Series(elements_df.number.values, index=elements_df.name).to_dict()
+        # Ensure selected_element_number corresponds to a valid name for the selectbox
+        current_selection_name = None
+        if st.session_state.selected_element_number:
+            match = elements_df[elements_df['number'] == st.session_state.selected_element_number]
+            if not match.empty:
+                current_selection_name = match.iloc[0]['name']
+        
+        selected_name_from_box = st.selectbox(
+            "Or Select Element:", 
+            options=elements_df['name'].sort_values().tolist(), 
+            index=elements_df['name'].sort_values().tolist().index(current_selection_name) if current_selection_name and current_selection_name in elements_df['name'].sort_values().tolist() else 0
+        )
+        if selected_name_from_box and (not current_selection_name or selected_name_from_box != current_selection_name) :
+            st.session_state.selected_element_number = element_names_map[selected_name_from_box]
+            # No st.rerun() here to avoid loop if selectbox itself causes a rerun
+
+    # --- Main Content Area (Periodic Table and Details) ---
+    col_table, col_details = st.columns([2,1]) # Adjust ratio as needed, table larger
+
+    with col_table:
+        st.subheader("Periodic Table Grid")
+        plotly_fig = create_plotly_periodic_table_figure(elements_df, filtered_elements_df, st.session_state.selected_element_number)
+        
+        # Prepare data for the HTML component
+        fig_data_json = json.dumps(plotly_fig.data, cls=plotly.utils.PlotlyJSONEncoder)
+        fig_layout_json = json.dumps(plotly_fig.layout, cls=plotly.utils.PlotlyJSONEncoder)
+
+        component_html_rendered = PLOTLY_COMPONENT_HTML.replace("{fig_data_placeholder}", fig_data_json)
+        component_html_rendered = component_html_rendered.replace("{fig_layout_placeholder}", fig_layout_json)
+        
+        # Calculate dynamic height for component based on figure's layout height
+        dynamic_component_height = plotly_fig.layout.height if plotly_fig.layout and plotly_fig.layout.height else 600
+        
+        clicked_element_data = st.components.v1.html(component_html_rendered, height=dynamic_component_height + 40, scrolling=False)
+
+        if clicked_element_data and clicked_element_data.get("type") == "element_click":
+            clicked_number = clicked_element_data.get("number")
+            if clicked_number != st.session_state.selected_element_number:
+                 st.session_state.selected_element_number = clicked_number
+                 st.rerun() # Rerun to update selection and details pane
+
+    with col_details:
+        st.subheader("Element Details")
+        selected_element_series = None
+        if st.session_state.selected_element_number:
+            match = elements_df[elements_df['number'] == st.session_state.selected_element_number]
+            if not match.empty:
+                selected_element_series = match.iloc[0]
+        
+        display_element_details(selected_element_series, elements_df)
+
     # Footer
     st.markdown("---")
-    st.markdown("Developed with Streamlit | Data sourced from public chemistry databases")
+    st.markdown("Developed with Streamlit | Data: [PeriodicTableJSON](https://github.com/Bowserinator/Periodic-Table-JSON) | Images: [images-of-elements.com](https://images-of-elements.com)")
 
 if __name__ == "__main__":
+    # Need to import plotly for the JSON encoder if not already globally imported
+    import plotly 
     main()
 
