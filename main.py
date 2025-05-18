@@ -1,3 +1,4 @@
+
 # Advanced Production-Grade Periodic Table Explorer
 # A Streamlit application that displays an interactive periodic table
 # with sophisticated UI elements and professional-grade design
@@ -733,4 +734,166 @@ def display_element_details(element, elements_df):
         
         with col2:
             # Display element image if available
-            if 'number' in element and isinstance(
+            if 'number' in element and isinstance(element['number'], int):
+                # Try to load image from URL or show placeholder
+                try:
+                    image_url = f"https://images-of-elements.com/s/{element['name'].lower()}.jpg"
+                    st.image(image_url, caption=f"{element['name']} sample", use_column_width=True)
+                except:
+                    st.image("https://via.placeholder.com/300x200?text=Image+Not+Available", 
+                             caption="Element image not available", use_column_width=True)
+            
+            # Show position in periodic table
+            st.markdown("### Position in Periodic Table")
+            st.markdown(f"**Group:** {element.get('group', 'N/A')}")
+            st.markdown(f"**Period:** {element.get('period', 'N/A')}")
+            st.markdown(f"**Block:** {element.get('block', 'N/A')}")
+            st.markdown(f"**Category:** {element.get('category', 'N/A').title()}")
+    
+    with tabs[1]:  # Physical Properties tab
+        st.markdown("### Physical Properties")
+        physical_props = {
+            "Melting Point": f"{element.get('melt', 'N/A')} K",
+            "Boiling Point": f"{element.get('boil', 'N/A')} K",
+            "Density": f"{element.get('density', 'N/A')} g/cm³",
+            "Phase at STP": element.get('phase', 'Unknown').title(),
+            "Electronegativity": element.get('electronegativity_pauling', 'N/A'),
+            "Ionization Energy": f"{element.get('ionization_energies', ['N/A'])[0]} eV" if 'ionization_energies' in element and element['ionization_energies'] else 'N/A',
+            "Atomic Radius": f"{element.get('atomic_radius', 'N/A')} pm",
+            "Covalent Radius": f"{element.get('covalent_radius', 'N/A')} pm"
+        }
+        
+        props_df = pd.DataFrame(physical_props.items(), columns=["Property", "Value"])
+        st.table(props_df)
+    
+    with tabs[2]:  # Chemical Properties tab
+        st.markdown("### Chemical Properties")
+        chem_props = {
+            "Atomic Number": element.get('number', 'N/A'),
+            "Atomic Mass": f"{element.get('atomic_mass', 'N/A')} u",
+            "Electron Configuration": element.get('electron_configuration', 'N/A'),
+            "Oxidation States": element.get('oxidation_states', 'N/A'),
+            "Crystal Structure": element.get('crystal_structure', 'N/A'),
+            "Molar Heat Capacity": f"{element.get('molar_heat', 'N/A')} J/(mol·K)"
+        }
+        
+        chem_df = pd.DataFrame(chem_props.items(), columns=["Property", "Value"])
+        st.table(chem_df)
+    
+    with tabs[3]:  # Visualizations tab
+        viz_tab1, viz_tab2 = st.columns(2)
+        
+        with viz_tab1:
+            st.markdown("#### Electron Shell Diagram")
+            electron_fig = create_electron_shell_visualization(element.get('electron_configuration', ''))
+            st.plotly_chart(electron_fig, use_container_width=True)
+        
+        with viz_tab2:
+            st.markdown("#### Molecular Structure (Simplified)")
+            # Placeholder for molecular visualization
+            formula = element.get('symbol', 'X') + (element.get('name', '')[0:2] if len(element.get('name', '')) > 2 else 'X2')
+            mol_fig = generate_molecular_visualization(formula)
+            st.plotly_chart(mol_fig, use_container_width=True)
+    
+    with tabs[4]:  # Applications tab
+        st.markdown("### Common Applications")
+        # Placeholder for applications information
+        st.markdown("This section would typically include information about industrial and practical applications of the element.")
+        st.markdown("- Application 1")
+        st.markdown("- Application 2")
+        st.markdown("- Application 3")
+        
+        st.markdown("### Isotopes")
+        if 'isotopes' in element and element['isotopes']:
+            isotopes_data = [{"Mass Number": iso.get('mass_number', 'N/A'), "Abundance": iso.get('abundance', 'N/A'), "Half-life": iso.get('half_life', 'N/A')} for iso in element['isotopes']]
+            isotopes_df = pd.DataFrame(isotopes_data)
+            st.table(isotopes_df)
+        else:
+            st.markdown("No isotope information available for this element.")
+
+# Main app logic
+def main():
+    # Initialize session state if not already done
+    if 'selected_element_number' not in st.session_state:
+        st.session_state.selected_element_number = None
+    
+    # Load element data
+    with st.spinner("Loading periodic table data..."):
+        elements_df = load_element_data()
+    
+    # Header
+    st.markdown("# Interactive Periodic Table Explorer")
+    st.markdown("Explore the properties and characteristics of chemical elements with interactive visualizations.")
+    
+    # Sidebar
+    with st.sidebar:
+        st.image("https://via.placeholder.com/150x80?text=Periodic+Table+App", use_column_width=True)
+        st.markdown("### Filter Elements")
+        
+        # Category filter
+        categories = sorted(elements_df['category'].unique())
+        selected_categories = st.multiselect("Filter by Category", categories, default=categories)
+        
+        # Phase filter
+        phases = sorted(elements_df['phase'].dropna().unique())
+        selected_phases = st.multiselect("Filter by Phase at STP", phases, default=phases)
+        
+        # Period filter
+        periods = sorted(elements_df['period'].dropna().unique())
+        selected_periods = st.multiselect("Filter by Period", periods, default=periods)
+        
+        # Group filter
+        groups = sorted(elements_df['group'].dropna().unique())
+        selected_groups = st.multiselect("Filter by Group", groups, default=groups)
+        
+        # Apply filters
+        filtered_df = elements_df[
+            (elements_df['category'].isin(selected_categories)) &
+            (elements_df['phase'].isin(selected_phases)) &
+            (elements_df['period'].isin(selected_periods)) &
+            (elements_df['group'].isin(selected_groups))
+        ]
+        
+        st.markdown("### Quick Search")
+        search_term = st.text_input("Search by Name or Symbol", "")
+        if search_term:
+            search_term = search_term.lower()
+            filtered_df = filtered_df[
+                (filtered_df['name'].str.lower().str.contains(search_term)) |
+                (filtered_df['symbol'].str.lower().str.contains(search_term))
+            ]
+        
+        st.markdown("### Legend")
+        for cat, color in state.category_colors.items():
+            st.markdown(f"<div style='display: flex; align-items: center; margin-bottom: 5px;'><div style='width: 12px; height: 12px; background-color: {color}; margin-right: 5px;'></div>{cat.title()}</div>", unsafe_allow_html=True)
+    
+    # Main content area
+    tab1, tab2 = st.tabs(["Periodic Table", "Element Details"])
+    
+    with tab1:
+        st.markdown("### Interactive Periodic Table")
+        st.markdown("Click on any element to view detailed information.")
+        
+        # Create and display the periodic table grid
+        grid_html = create_periodic_table_grid(elements_df, filtered_df)
+        st.markdown(grid_html, unsafe_allow_html=True)
+        
+        # Check for element selection (this would work in a real Streamlit app)
+        if st.session_state.selected_element_number:
+            selected_num = st.session_state.selected_element_number
+            selected_element = elements_df[elements_df['number'] == selected_num].iloc[0] if selected_num in elements_df['number'].values else None
+            if selected_element is not None:
+                state.selected_element = selected_element
+                st.markdown(f"Selected element: **{selected_element['name']}**. Switch to the Element Details tab to view more information.")
+    
+    with tab2:
+        display_element_details(state.selected_element, elements_df)
+    
+    # Footer
+    st.markdown("---")
+    st.markdown("Developed with Streamlit | Data sourced from public chemistry databases")
+
+if __name__ == "__main__":
+    main()
+
+
